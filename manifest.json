@@ -1,0 +1,29 @@
+{
+  "name": "ChatGPT Audio Player",
+  "version": "0.0.0.1",
+  "description": "Adds an audio player for ChatGPT's Read Aloud feature",
+  "author": "Ian Speckart",
+  "action": {
+    "default_icon": {
+      "16": "assets/logo16.png",
+      "32": "assets/logo32.png",
+      "48": "assets/logo48.png",
+      "128": "assets/logo128.png"
+    },
+    "default_popup": "src/popup.html"
+  },
+  "icons": {
+    "16": "assets/logo16.png",
+    "32": "assets/logo32.png",
+    "48": "assets/logo48.png",
+    "128": "assets/logo128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "css": ["src/css/styles.css"],
+      "js": ["src/js/content-script.js"]
+    }
+  ],
+  "manifest_version": 3
+}
