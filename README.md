@@ -4,6 +4,10 @@ Audio player for the Read Aloud feature
 
 ![Screenshot of the extension](images/promo-screenshot.png)
 
+# DESCRIPTION:
+
+This file adds audio player controls when an audio element is being played with the 'Read Aloud' feature of ChatGPT.
+
 # RUNTIMES:
 
 1. This extension can run by installing it as a Chrome extension.  
@@ -12,10 +16,6 @@ Audio player for the Read Aloud feature
 2. It can also be ran as a script for violentmonkey/tampermonkey.  
    For that, just copy/paste the code in js/content-script.js.  
    It's ready to go 🚀
-
-# DESCRIPTION:
-
-This file adds audio player controls when an audio element is being played with the 'Read Aloud' feature of ChatGPT.
 
 # HOW IT WORKS:
 
@@ -32,6 +32,6 @@ This file adds audio player controls when an audio element is being played with 
 2. In Firefox, the audio always has around 12 seconds of extra duration. The seek bar reaches time - 12s and then jumps to the end.  
    So it's not worth publishing the extension for FF just yet.
 
-These issues could be probably fixed by intercepting the audio element returned by ChatGPT's call to the sinthesizer.  
+These issues could be probably fixed by intercepting the audio element returned by ChatGPT's call to the synthesizer.  
 That approach is used in this repo: https://github.com/drengskapur/chatgpt-audio-enhancer  
 I'm not using that approach to keep the code minimal, as users will likely copy the code to violentmonkey.
