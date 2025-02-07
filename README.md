@@ -10,10 +10,10 @@ This file adds audio player controls when an audio element is being played with 
 
 # RUNTIMES:
 
-1. This extension can run by installing it as a Chrome extension.  
+1. This player can be installed as a Chrome extension.  
    Link here: {todo: add link when extension is published}
 
-2. It can also be ran as a script for violentmonkey/tampermonkey.  
+2. It can also be added as a script for violentmonkey/tampermonkey.  
    For that, just copy/paste the code in js/content-script.js.  
    It's ready to go 🚀
 
