@@ -10,21 +10,16 @@
 
 /**
  * RUNTIMES:
- * The above comments are instructions for violentmonkey/tampermonkey. ☝️
- * Those are extensions that act as script managers.
- * They allow you to run JavaScript code without installing a dedicated extension.
- *
  * The code in this file can run as a Chrome/Firefox extension, by installing
  * 'Audio Player for ChatGPT', or by copy/pasting this file in a script manager like
- * violentmonkey.
- *
+ * violentmonkey (ready to go).
  *
  * DESCRIPTION:
  * This file adds audio player controls when an audio element is being played with
- * the 'Read Aloud' feature of ChatGPT.
+ * the 'Read Aloud' feature of ChatGPT web.
  *
  * HOW IT WORKS:
- * -Checks if the tab is active.
+ * -It checks if the tab is active.
  * -If so, it checks if there's an audio element being played.
  * -If so, it enables its native audio controls.
  * -It positions the player next to the Share button.
@@ -66,7 +61,7 @@ function startCheckingForAudioFile() {
 }
 
 function checkForAudioFile() {
-  // check if the Read Aloud feature generated an audio element in the DOM
+  // check if the 'Read Aloud' feature generated an audio element
   const audio = document.querySelector('audio');
 
   if (audio && !audio.paused) {
