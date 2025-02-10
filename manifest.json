@@ -1,5 +1,5 @@
 {
-  "name": "ChatGPT Audio Player",
+  "name": "Audio Player for ChatGPT",
   "version": "0.0.0.1",
   "description": "Adds an audio player for ChatGPT's Read Aloud feature",
   "author": "Ian Speckart",
