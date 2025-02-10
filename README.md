@@ -1,12 +1,12 @@
 # chatgpt-audio-player
 
-Audio player for the Read Aloud feature
+Audio player for the 'Read Aloud' feature
 
 ![Screenshot of the extension](images/promo-screenshot.png)
 
 # DESCRIPTION:
 
-This file adds audio player controls when an audio element is being played with the 'Read Aloud' feature of ChatGPT.
+This extension adds audio player controls when an Audio element is being played with the 'Read Aloud' feature of ChatGPT.
 
 # RUNTIMES:
 
@@ -15,7 +15,7 @@ This file adds audio player controls when an audio element is being played with 
 
 2. It can also be added as a script for violentmonkey/tampermonkey.  
    For that, just copy/paste the code in js/content-script.js.  
-   It's ready to go 🚀
+   It's ready to go.
 
 # HOW IT WORKS:
 
