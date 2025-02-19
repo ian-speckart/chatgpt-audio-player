@@ -10,8 +10,7 @@ This extension adds audio player controls when an Audio element is being played 
 
 # RUNTIMES:
 
-1. This player can be installed as a Chrome extension.  
-   Link here: {todo: add link when extension is published}
+1. This player can be installed as a [Chrome extension](https://chromewebstore.google.com/detail/audio-player-for-chatgpt/pgogbhnjghehkajgclkpgplflfnjcgpm)
 
 2. It can also be added as a script for violentmonkey/tampermonkey.  
    For that, just copy/paste the code in src/js/content-script.js.  
