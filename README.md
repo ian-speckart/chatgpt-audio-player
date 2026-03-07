@@ -21,7 +21,20 @@ This extension adds audio player controls when an Audio element is being played 
 -It checks if the tab is active.  
 -If so, it checks if there's an audio element being played.  
 -If so, it enables its native audio controls (audio.controls = true).  
--It positions the player next to the Share button.
+-It positions the player next to the Share button.  
+-It injects a playback speed button next to the player.
+
+# PLAYBACK SPEED SELECTOR:
+
+-A speed icon button is injected beside the player controls.
+-Clicking the speed button opens a white popup panel directly below it.
+-The popup includes fixed options: `0.75x`, `1x`, `1.25x`, `1.5x`, `1.75x`, `2x`.
+-Selecting a speed applies immediately through `audio.playbackRate`.
+-The selected speed is saved in `localStorage` using key `chatgptAudioPlayer.playbackRate`.
+-When the player is shown, the saved speed is restored automatically.
+-If the stored value is missing/invalid, playback falls back to `1x`.
+-The speed button/popup visibility follows the player show/hide behavior.
+-The selector uses a white background with dark text/icons to blend with ChatGPT UI.
 
 # KNOWN ISSUES:
 
