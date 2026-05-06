@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://www.chatgpt.com/*
 // @grant       none
-// @version     0.0.0.1
+// @version     0.0.0.2
 // @author      Ian Speckart
 // @description https://github.com/ian-speckart/chatgpt-audio-player.git
 // ==/UserScript==
@@ -17,118 +17,253 @@
  * DESCRIPTION:
  * This file adds audio player controls when an audio element is being played with
  * the 'Read Aloud' feature of ChatGPT web.
- *
- * HOW IT WORKS:
- * -It checks if the tab is active.
- * -If so, it checks if there's an audio element being played.
- * -If so, it enables its native audio controls.
- * -It positions the player next to the Share button.
- */
+ * 
+ * ATTRIBUTION:
+ * This extension is not affiliated with OpenAI. It was developed independently by Ian Speckart.
+ * This extension was updated using code from:
+ * https://github.com/drengskapur/chatgpt-audio-enhancer/issues/1
+ * On 2026-05-06, ChatGPT changed its audio streaming endpoint, breaking the original extension. 
+ * This is a rewrite to restore functionality. I used code from @drengskapur's chatgpt-audio-enhancer, which was MIT licensed.
+ * His license:
+ * 
+ * MIT License
 
-// hides the player
-const closeBtn = document.createElement('button');
+  Copyright (c) 2024 Drengskapur
 
-let checkInterval;
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-/**
- * Monitor if the tab is active / has focus.
- */
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    // Tab lost focus
-    if (checkInterval) {
-      clearInterval(checkInterval);
-      checkInterval = null;
-    }
-  } else {
-    // Tab gained focus
-    startCheckingForAudioFile();
-  }
-});
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
-/**
- * When the script loads for the first time, the 'visibilitychange' event is
- * not triggered. So we manually check for focus.
- */
-if (document.hasFocus()) {
-  startCheckingForAudioFile();
-}
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ **/
 
-function startCheckingForAudioFile() {
-  if (!checkInterval) {
-    checkInterval = setInterval(checkForAudioFile, 1000);
-  }
-}
+(function () {
+    'use strict';
 
-function checkForAudioFile() {
-  // check if the 'Read Aloud' feature generated an audio element
-  const audio = document.querySelector('audio');
+    let audio = null, controlsDiv = null, playPauseBtn = null, seekBar = null, seekLabel = null;
+    let playbackRate = localStorage.getItem('ae_playbackRate') || 1;
+    let currentBlob = null;
+    let allChunks = [];
 
-  if (audio && !audio.paused) {
-    showPlayer(audio);
-  }
-}
+    const downloadAudio = () => {
+        if (!allChunks.length) return;
+        const blob = new Blob(allChunks, { type: 'audio/aac' });
+        const url = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement('a'), {
+            href: url,
+            download: `ChatGPT_Audio_${new Date().getTime()}.aac`,
+            style: 'display:none'
+        });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
 
-/**
- * @player: the audio element that is added to the DOM when the 'Read Aloud' feature is used.
- * It's a single element that is reused for all playbacks, and is already a child of
- * document.body.
- * It just need its controls enabled, and some styling.
- */
-function showPlayer(player) {
-  // we set this here in case the user closed the player
-  player.style.display = 'block';
-  closeBtn.style.display = 'block';
+    const closePlayer = () => {
+        if (audio) {
+            audio.pause();
+            audio.src = '';
+        }
+        if (controlsDiv) {
+            controlsDiv.remove();
+            controlsDiv = null;
+        }
+        currentBlob = null;
+        allChunks = [];
+    };
 
-  // if we have already configured the player
-  if (player.controls === true) {
-    return;
-  }
+    const buildControls = () => {
+        if (controlsDiv) return;
 
-  player.controls = true;
+        controlsDiv = document.createElement('div');
+        controlsDiv.id = 'ae_enhanced_player';
+        controlsDiv.style.cssText = `
+            position:fixed; top:12px; left:50%; transform:translateX(-50%);
+            z-index:10000; display:flex; gap:15px; align-items:center;
+            padding:10px 20px; border-radius:30px;
+            background: #171717; border: 1px solid #444;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); color:#ececec;
+            font-family: sans-serif; font-size: 14px;
+        `;
 
-  /**
-   * Adding styles in JS (instead of CSS) so that users can copy this single file
-   * into violentmonkey/tampermonkey if they dont wanna use my browser extension.
-   */
-  player.style.position = 'fixed';
-  player.style.top = '9px';
-  player.style.left = 'unset';
-  player.style.right = '180px';
-  player.style.bottom = 'unset';
-  player.style.width = '500px';
-  player.style.height = '38px';
+        playPauseBtn = document.createElement('button');
+        playPauseBtn.textContent = 'Loading...';
+        playPauseBtn.style.cssText = 'background:none; border:none; color:#6bb9f5; cursor:pointer; font-weight:bold; min-width:70px;';
 
-  closeBtn.style.position = 'fixed';
-  closeBtn.style.width = '20px';
-  closeBtn.style.height = '20px';
-  closeBtn.style.top = '19px';
-  closeBtn.style.right = '687px';
-  closeBtn.appendChild(getExitIcon());
-  closeBtn.addEventListener('click', () => hidePlayer(player));
-  document.body.appendChild(closeBtn);
-}
+        // Seek bar — hidden until stream finishes
+        seekBar = Object.assign(document.createElement('input'), {
+            type: 'range', min: 0, max: 100, value: 0,
+            style: 'width:300px; cursor:pointer; display:none;'
+        });
 
-/**
- * The player and closeBtn will remain hiden until an audio starts playing
- * again.
- */
-function hidePlayer(player) {
-  player.style.display = 'none';
-  closeBtn.style.display = 'none';
+        // Placeholder shown while streaming
+        seekLabel = document.createElement('span');
+        seekLabel.textContent = 'Loading seek bar…';
+        seekLabel.style.cssText = 'color:#888; font-size:13px; width:300px; text-align:center;';
 
-  player.pause();
-}
+        const dlBtn = document.createElement('button');
+        dlBtn.innerHTML = '⬇️';
+        dlBtn.title = 'Download Audio';
+        dlBtn.style.cssText = 'background:none; border:none; cursor:pointer; font-size:16px;';
+        dlBtn.onclick = downloadAudio;
 
-function getExitIcon() {
-  // Create a container for the SVG content
-  const container = document.createElement('div');
-  container.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 1.61143L14.3886 0L8 6.38857L1.61143 0L0 1.61143L6.38857 8L0 14.3886L1.61143 16L8 9.61143L14.3886 16L16 14.3886L9.61143 8L16 1.61143Z" fill="#8F8F8F"/>
-        </svg>
-    `;
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.title = 'Close Player';
+        closeBtn.style.cssText = 'background:none; border:none; color:#888; cursor:pointer; font-size:16px; margin-left:5px;';
+        closeBtn.onclick = closePlayer;
 
-  // Return the SVG element
-  return container.querySelector('svg');
-}
+        controlsDiv.append(playPauseBtn, seekLabel, seekBar, dlBtn, closeBtn);
+        document.body.appendChild(controlsDiv);
+    };
+
+    const enableSeekBar = () => {
+        if (!seekBar || !seekLabel) return;
+        seekLabel.style.display = 'none';
+        seekBar.style.display = 'block';
+    };
+
+    const attachAudioStream = async (response) => {
+        buildControls();
+        allChunks = [];
+
+        try {
+            const mimeType = response.headers.get('content-type')?.split(';')[0] || 'audio/aac';
+            const mseSupported = window.MediaSource && MediaSource.isTypeSupported(mimeType);
+
+            if (!audio) {
+                audio = new Audio();
+                audio.addEventListener('timeupdate', () => {
+                    if (audio.duration && isFinite(audio.duration)) {
+                        seekBar.value = (audio.currentTime / audio.duration) * 100;
+                    }
+                });
+                audio.addEventListener('ended', () => { playPauseBtn.textContent = 'Play'; });
+            }
+
+            audio.playbackRate = playbackRate;
+
+            const wireControls = () => {
+                playPauseBtn.textContent = 'Pause';
+                playPauseBtn.onclick = () => {
+                    if (audio.paused) { audio.play(); playPauseBtn.textContent = 'Pause'; }
+                    else { audio.pause(); playPauseBtn.textContent = 'Play'; }
+                };
+                seekBar.oninput = () => {
+                    if (audio.duration && isFinite(audio.duration)) {
+                        audio.currentTime = (seekBar.value / 100) * audio.duration;
+                    }
+                };
+            };
+
+            if (mseSupported) {
+                // --- Streaming path via MediaSource ---
+                const mediaSource = new MediaSource();
+                audio.src = URL.createObjectURL(mediaSource);
+
+                await new Promise(resolve => mediaSource.addEventListener('sourceopen', resolve, { once: true }));
+                const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+
+                const reader = response.body.getReader();
+                let firstChunk = true;
+
+                const pump = async () => {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        const waitIdle = () => new Promise(r => {
+                            if (!sourceBuffer.updating) return r();
+                            sourceBuffer.addEventListener('updateend', r, { once: true });
+                        });
+                        await waitIdle();
+                        if (mediaSource.readyState === 'open') mediaSource.endOfStream();
+
+                        // Stream finished — swap label for seek bar
+                        enableSeekBar();
+                        wireControls();
+                        playPauseBtn.textContent = audio.paused ? 'Play' : 'Pause';
+                        return;
+                    }
+
+                    allChunks.push(value);
+
+                    if (sourceBuffer.updating) {
+                        await new Promise(r => sourceBuffer.addEventListener('updateend', r, { once: true }));
+                    }
+
+                    sourceBuffer.appendBuffer(value);
+
+                    if (firstChunk) {
+                        firstChunk = false;
+                        await new Promise(r => sourceBuffer.addEventListener('updateend', r, { once: true }));
+                        audio.play().then(() => {
+                            playPauseBtn.textContent = 'Pause';
+                            playPauseBtn.onclick = () => {
+                                if (audio.paused) { audio.play(); playPauseBtn.textContent = 'Pause'; }
+                                else { audio.pause(); playPauseBtn.textContent = 'Play'; }
+                            };
+                            // seekBar intentionally NOT wired yet — still streaming
+                        }).catch(console.error);
+                    }
+
+                    pump();
+                };
+
+                pump();
+
+            } else {
+                // --- Fallback: collect full stream then play ---
+                console.warn('Extension not supported for', mimeType, '— falling back to full download');
+                const chunks = [];
+                const reader = response.body.getReader();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    allChunks.push(value);
+                }
+                const blob = new Blob(chunks, { type: mimeType });
+                audio.src = URL.createObjectURL(blob);
+                enableSeekBar();
+                audio.play().then(wireControls).catch(console.error);
+            }
+
+        } catch (err) {
+            if (playPauseBtn) playPauseBtn.textContent = 'Error';
+            console.error('[Audio Enhancer] Stream processing failed', err);
+        }
+    };
+
+    const originalFetch = window.fetch;
+    window.fetch = async function (...args) {
+        const res = await originalFetch.apply(this, args);
+        const url = args[0] instanceof Request ? args[0].url : args[0];
+
+        if (/\/backend-api\/(?:synthesize|speech\/generation)/.test(url)) {
+            buildControls();
+
+            const silencer = setInterval(() => {
+                document.querySelectorAll('audio').forEach(a => {
+                    if (a !== audio) { a.muted = true; a.pause(); }
+                });
+            }, 100);
+            setTimeout(() => clearInterval(silencer), 3000);
+
+            attachAudioStream(res);
+        }
+        return res;
+    };
+})();
