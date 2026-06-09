@@ -1,6 +1,6 @@
 {
   "name": "Audio Player for ChatGPT",
-  "version": "0.0.0.2",
+  "version": "0.0.0.3",
   "description": "Adds an audio player for ChatGPT's Read Aloud feature",
   "author": "Ian Speckart",
   "action": {
@@ -23,7 +23,7 @@
       "matches": ["https://chatgpt.com/*"],
       "js": ["src/js/content-script.js"],
       "run_at": "document_start",
-    "world": "MAIN"
+      "world": "MAIN"
     }
   ],
   "manifest_version": 3
