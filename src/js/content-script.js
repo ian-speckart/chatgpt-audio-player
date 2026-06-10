@@ -372,7 +372,7 @@
         speedMenu.style.cssText = [
             'position:absolute',
             'top:-50px',
-            'right:0',
+            'left:0',
             'display:none',
             'min-width:78px',
             'padding:8px 10px',
@@ -463,9 +463,6 @@
         downloadBtn.style.cssText = `${nakedButtonStyle};display:block;width:100%;text-align:center;font-size:13px;color:#e7edf6;`;
         downloadBtn.onclick = downloadAudio;
 
-        const speedRow = document.createElement('div');
-        speedRow.style.cssText = 'position:relative;display:flex;justify-content:flex-end;';
-
         speedBtn = document.createElement('button');
         speedBtn.type = 'button';
         speedBtn.title = 'Playback speed';
@@ -476,7 +473,9 @@
             speedMenu.style.display = speedMenu.style.display === 'block' ? 'none' : 'block';
         };
 
-        speedRow.append(speedBtn, createSpeedMenu());
+        const leftTimesContainer = document.createElement('div');
+        leftTimesContainer.style.cssText = 'position:relative;display:flex;align-items:center;';
+        leftTimesContainer.append(speedBtn, createSpeedMenu());
 
         seekBar = document.createElement('input');
         seekBar.type = 'range';
@@ -490,15 +489,17 @@
         };
 
         const timesRow = document.createElement('div');
-        timesRow.style.cssText = 'display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums;color:#edf1f7;';
+        timesRow.style.cssText = 'display:flex;align-items:center;font-size:13px;font-variant-numeric:tabular-nums;color:#edf1f7;gap:8px;';
 
         currentTimeLabel = document.createElement('span');
+        currentTimeLabel.style.cssText = 'flex:1;text-align:center;';
         currentTimeLabel.textContent = '0:00';
 
         durationLabel = document.createElement('span');
+        durationLabel.style.cssText = 'white-space:nowrap;';
         durationLabel.textContent = '--:--';
 
-        timesRow.append(currentTimeLabel, durationLabel);
+        timesRow.append(leftTimesContainer, currentTimeLabel, durationLabel);
 
         const controlsRow = document.createElement('div');
         controlsRow.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;';
@@ -538,7 +539,7 @@
         playbackGroup.append(backBtn, playPauseBtn, forwardBtn);
         rightGroup.append(downloadBtn);
         controlsRow.append(document.createElement('div'), playbackGroup, rightGroup);
-        contentDiv.append(speedRow, seekBar, timesRow, controlsRow);
+        contentDiv.append(seekBar, timesRow, controlsRow);
         controlsDiv.append(titleBar, contentDiv);
         document.body.appendChild(controlsDiv);
 
