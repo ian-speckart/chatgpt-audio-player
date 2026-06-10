@@ -104,6 +104,7 @@
     const setIconButton = (button, iconName, label, size = 24) => {
         button.type = 'button';
         button.innerHTML = iconMarkup[iconName] || '';
+        button.dataset.iconName = iconName;
         button.setAttribute('aria-label', label);
         button.title = label;
         button.style.cssText = `${iconButtonStyle};width:${size}px;height:${size}px;`;
@@ -118,14 +119,25 @@
 
     const refreshIconButton = (button, iconName, label) => {
         if (!button) return;
-        button.innerHTML = iconMarkup[iconName] || '';
-        button.setAttribute('aria-label', label);
-        button.title = label;
-        const svg = button.querySelector('svg');
-        if (svg) {
-            svg.style.width = '18px';
-            svg.style.height = '18px';
-            svg.style.display = 'block';
+        const needsIconUpdate = button.dataset.iconName !== iconName;
+        const needsLabelUpdate = button.getAttribute('aria-label') !== label || button.title !== label;
+
+        if (!needsIconUpdate && !needsLabelUpdate) return;
+
+        if (needsIconUpdate) {
+            button.innerHTML = iconMarkup[iconName] || '';
+            button.dataset.iconName = iconName;
+            const svg = button.querySelector('svg');
+            if (svg) {
+                svg.style.width = '18px';
+                svg.style.height = '18px';
+                svg.style.display = 'block';
+            }
+        }
+
+        if (needsLabelUpdate) {
+            button.setAttribute('aria-label', label);
+            button.title = label;
         }
     };
 
@@ -508,26 +520,24 @@
 
         backBtn = createIconButton('backward', 'Back 5 seconds', 32);
         backBtn.onclick = () => {
-            if (!audio) return;
+            const currentAudio = getObservedAudio();
+            if (!currentAudio) return;
+            audio = currentAudio;
             audio.currentTime = Math.max(0, audio.currentTime - 5);
         };
 
         playPauseBtn = createIconButton('play', 'Play', 44);
         playPauseBtn.onclick = () => {
-           
-
-            const audio = document.querySelectorAll('audio')[1];
-            if (!audio) {
-                console.error('No audio')
+            const currentAudio = getObservedAudio();
+            if (!currentAudio) {
                 return;
             }
 
-             if (!hasAudioSource()) {
-                console.warn('No audio source', audio.currentSrc, audio.src)
+            audio = currentAudio;
+
+            if (!hasAudioSource()) {
                 return;
             }
-
-            console.log('audio.paused:', audio.paused)
 
             if (audio.paused) {
                 audio.play().catch(console.error);
@@ -538,7 +548,9 @@
 
         forwardBtn = createIconButton('forward', 'Forward 5 seconds', 32);
         forwardBtn.onclick = () => {
-            if (!audio) return;
+            const currentAudio = getObservedAudio();
+            if (!currentAudio) return;
+            audio = currentAudio;
             const maxDuration = Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + 5;
             audio.currentTime = Math.min(maxDuration, audio.currentTime + 5);
         };
