@@ -427,7 +427,7 @@
             'justify-content:space-between',
             'gap:12px',
             'padding:10px 14px',
-            'background:#10161f',
+            'background:black',
             'cursor:move',
             'user-select:none'
         ].join(';');
@@ -452,8 +452,8 @@
         contentDiv.style.cssText = [
             'display:grid',
             'gap:10px',
-            'padding:14px 16px 16px',
-            'background:linear-gradient(180deg, #2d4b67 0%, #162434 100%)'
+            'padding:14px 16px 0px 16px',
+            'background:linear-gradient(to right, rgb(46, 40, 72) 0%, rgb(85, 31, 97) 100%)'
         ].join(';');
 
         downloadBtn = document.createElement('button');
