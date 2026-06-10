@@ -18,16 +18,11 @@
  * This file adds audio player controls when an audio element is being played with
  * the 'Read Aloud' feature of ChatGPT web.
  * 
- * ATTRIBUTION:
+ * NOTICE:
  * This extension is not affiliated with OpenAI. It was developed independently by Ian Speckart.
- * This extension was updated using code from:
- * https://github.com/drengskapur/chatgpt-audio-enhancer/issues/1
- * On 2026-05-06, ChatGPT changed its audio streaming endpoint, breaking the original extension. 
- * This is a rewrite to restore functionality. I used code from @drengskapur's chatgpt-audio-enhancer, which was MIT licensed.
- * His license: https://github.com/drengskapur/chatgpt-audio-enhancer/blob/main/LICENSE
  * 
- * On 2026-06-09: the user 'Mohammad J' contributed code to add functionality (backward/forward buttons, 
- * playback speed, time labels). I audited, tested and integrated his contribution.
+ * ATTRIBUTIONS:
+ * See CREDITS.md
  **/
 
 (function () {
@@ -71,6 +66,73 @@
         'font:inherit',
         'cursor:pointer'
     ].join(';');
+
+    const iconButtonStyle = [
+        nakedButtonStyle,
+        'display:inline-flex',
+        'align-items:center',
+        'justify-content:center',
+        'border-radius:999px',
+        'transition:background-color 120ms ease, transform 120ms ease',
+        'color:inherit'
+    ].join(';');
+
+    const iconMarkup = {
+        minimize: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" /></svg>',
+        maximize: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>',
+        close: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>',
+        backward: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16.811c0 .864-.933 1.406-1.683.977l-7.108-4.061a1.125 1.125 0 0 1 0-1.954l7.108-4.061A1.125 1.125 0 0 1 21 8.689v8.122ZM11.25 16.811c0 .864-.933 1.406-1.683.977l-7.108-4.061a1.125 1.125 0 0 1 0-1.954l7.108-4.061a1.125 1.125 0 0 1 1.683.977v8.122Z" /></svg>',
+        play: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" /></svg>',
+        pause: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9v6m-4.5 0V9M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
+        forward: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 0 1 0 1.954l-7.108 4.061A1.125 1.125 0 0 1 3 16.811V8.69ZM12.75 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 0 1 0 1.954l-7.108 4.061a1.125 1.125 0 0 1-1.683-.977V8.69Z" /></svg>',
+        download: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>'
+    };
+
+    const setButtonHoverState = (button, hoverColor = 'rgba(255,255,255,0.12)') => {
+        if (!button) return;
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = hoverColor;
+            button.style.transform = 'translateY(-1px)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = 'transparent';
+            button.style.transform = 'none';
+        });
+    };
+
+    const setIconButton = (button, iconName, label, size = 24) => {
+        button.type = 'button';
+        button.innerHTML = iconMarkup[iconName] || '';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.style.cssText = `${iconButtonStyle};width:${size}px;height:${size}px;`;
+        const svg = button.querySelector('svg');
+        if (svg) {
+            svg.style.width = '18px';
+            svg.style.height = '18px';
+            svg.style.display = 'block';
+        }
+        setButtonHoverState(button);
+    };
+
+    const refreshIconButton = (button, iconName, label) => {
+        if (!button) return;
+        button.innerHTML = iconMarkup[iconName] || '';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        const svg = button.querySelector('svg');
+        if (svg) {
+            svg.style.width = '18px';
+            svg.style.height = '18px';
+            svg.style.display = 'block';
+        }
+    };
+
+    const createIconButton = (iconName, label, size = 24) => {
+        const button = document.createElement('button');
+        setIconButton(button, iconName, label, size);
+        return button;
+    };
 
     const formatRate = (rate) => `${String(rate).replace(/\.0$/, '')}x`;
 
@@ -171,7 +233,11 @@
             return;
         }
 
-        playPauseBtn.textContent = hasAudioSource() && audio && !audio.paused ? 'Pause' : 'Play';
+        refreshIconButton(
+            playPauseBtn,
+            hasAudioSource() && audio && !audio.paused ? 'pause' : 'play',
+            hasAudioSource() && audio && !audio.paused ? 'Pause' : 'Play'
+        );
     };
 
     const updateControlState = () => {
@@ -258,7 +324,9 @@
     const toggleCollapsed = () => {
         isCollapsed = !isCollapsed;
         if (contentDiv) contentDiv.style.display = isCollapsed ? 'none' : 'grid';
-        if (minimizeBtn) minimizeBtn.textContent = isCollapsed ? '+' : '-';
+        if (minimizeBtn) {
+            refreshIconButton(minimizeBtn, isCollapsed ? 'maximize' : 'minimize', isCollapsed ? 'Expand player' : 'Minimize player');
+        }
     };
 
     const beginDrag = (event) => {
@@ -372,18 +440,10 @@
         const titleBarButtons = document.createElement('div');
         titleBarButtons.style.cssText = 'display:flex; align-items:center; gap:10px;';
 
-        minimizeBtn = document.createElement('button');
-        minimizeBtn.type = 'button';
-        minimizeBtn.title = 'Minimize or expand player';
-        minimizeBtn.textContent = '-';
-        minimizeBtn.style.cssText = `${nakedButtonStyle};font-size:18px;line-height:1;`;
+        minimizeBtn = createIconButton('minimize', 'Minimize player');
         minimizeBtn.onclick = toggleCollapsed;
 
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.title = 'Close player';
-        closeBtn.textContent = 'x';
-        closeBtn.style.cssText = `${nakedButtonStyle};font-size:16px;line-height:1;`;
+        const closeBtn = createIconButton('close', 'Close player');
         closeBtn.onclick = closePlayer;
 
         titleBarButtons.append(minimizeBtn, closeBtn);
@@ -452,21 +512,21 @@
         timesRow.append(currentTimeLabel, durationLabel);
 
         const controlsRow = document.createElement('div');
-        controlsRow.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:20px;';
+        controlsRow.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;';
 
-        backBtn = document.createElement('button');
-        backBtn.type = 'button';
-        backBtn.textContent = '5s Back';
-        backBtn.style.cssText = `${nakedButtonStyle};font-size:14px;`;
+        const playbackGroup = document.createElement('div');
+        playbackGroup.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:18px;';
+
+        const rightGroup = document.createElement('div');
+        rightGroup.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;';
+
+        backBtn = createIconButton('backward', 'Back 5 seconds', 32);
         backBtn.onclick = () => {
             if (!audio) return;
             audio.currentTime = Math.max(0, audio.currentTime - 5);
         };
 
-        playPauseBtn = document.createElement('button');
-        playPauseBtn.type = 'button';
-        playPauseBtn.textContent = 'Play';
-        playPauseBtn.style.cssText = `${nakedButtonStyle};font-size:15px;font-weight:700;`;
+        playPauseBtn = createIconButton('play', 'Play', 44);
         playPauseBtn.onclick = () => {
             if (!audio || !audio.src) return;
             if (audio.paused) {
@@ -476,18 +536,20 @@
             audio.pause();
         };
 
-        forwardBtn = document.createElement('button');
-        forwardBtn.type = 'button';
-        forwardBtn.textContent = '5s Forward';
-        forwardBtn.style.cssText = `${nakedButtonStyle};font-size:14px;`;
+        forwardBtn = createIconButton('forward', 'Forward 5 seconds', 32);
         forwardBtn.onclick = () => {
             if (!audio) return;
             const maxDuration = Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + 5;
             audio.currentTime = Math.min(maxDuration, audio.currentTime + 5);
         };
 
-        controlsRow.append(backBtn, playPauseBtn, forwardBtn);
-        contentDiv.append(trackTitleLabel, downloadBtn, speedRow, seekBar, timesRow, controlsRow);
+        downloadBtn = createIconButton('download', 'Download audio', 32);
+        downloadBtn.onclick = downloadAudio;
+
+        playbackGroup.append(backBtn, playPauseBtn, forwardBtn);
+        rightGroup.append(downloadBtn);
+        controlsRow.append(document.createElement('div'), playbackGroup, rightGroup);
+        contentDiv.append(trackTitleLabel, speedRow, seekBar, timesRow, controlsRow);
         controlsDiv.append(titleBar, contentDiv);
         document.body.appendChild(controlsDiv);
 
