@@ -433,9 +433,8 @@
         ].join(';');
         titleBar.onmousedown = beginDrag;
 
-        const titleBarLabel = document.createElement('div');
-        titleBarLabel.textContent = 'Audio Player';
-        titleBarLabel.style.cssText = 'font-size:13px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase;';
+        trackTitleLabel = document.createElement('div');
+        trackTitleLabel.style.cssText = 'font-size:13px; font-weight:600; letter-spacing:0.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
 
         const titleBarButtons = document.createElement('div');
         titleBarButtons.style.cssText = 'display:flex; align-items:center; gap:10px;';
@@ -447,7 +446,7 @@
         closeBtn.onclick = closePlayer;
 
         titleBarButtons.append(minimizeBtn, closeBtn);
-        titleBar.append(titleBarLabel, titleBarButtons);
+        titleBar.append(trackTitleLabel, titleBarButtons);
 
         contentDiv = document.createElement('div');
         contentDiv.style.cssText = [
@@ -455,16 +454,6 @@
             'gap:10px',
             'padding:14px 16px 16px',
             'background:linear-gradient(180deg, #2d4b67 0%, #162434 100%)'
-        ].join(';');
-
-        trackTitleLabel = document.createElement('div');
-        trackTitleLabel.style.cssText = [
-            'text-align:center',
-            'font-size:16px',
-            'font-weight:600',
-            'white-space:nowrap',
-            'overflow:hidden',
-            'text-overflow:ellipsis'
         ].join(';');
 
         downloadBtn = document.createElement('button');
@@ -549,7 +538,7 @@
         playbackGroup.append(backBtn, playPauseBtn, forwardBtn);
         rightGroup.append(downloadBtn);
         controlsRow.append(document.createElement('div'), playbackGroup, rightGroup);
-        contentDiv.append(trackTitleLabel, speedRow, seekBar, timesRow, controlsRow);
+        contentDiv.append(speedRow, seekBar, timesRow, controlsRow);
         controlsDiv.append(titleBar, contentDiv);
         document.body.appendChild(controlsDiv);
 
