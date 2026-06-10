@@ -514,7 +514,21 @@
 
         playPauseBtn = createIconButton('play', 'Play', 44);
         playPauseBtn.onclick = () => {
-            if (!hasAudioSource()) return;
+           
+
+            const audio = document.querySelectorAll('audio')[1];
+            if (!audio) {
+                console.error('No audio')
+                return;
+            }
+
+             if (!hasAudioSource()) {
+                console.warn('No audio source', audio.currentSrc, audio.src)
+                return;
+            }
+
+            console.log('audio.paused:', audio.paused)
+
             if (audio.paused) {
                 audio.play().catch(console.error);
                 return;
