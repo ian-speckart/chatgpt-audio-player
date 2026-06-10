@@ -35,6 +35,7 @@
     let backBtn = null;
     let forwardBtn = null;
     let seekBar = null;
+    let seekStatusLabel = null;
     let currentTimeLabel = null;
     let durationLabel = null;
     let trackTitleLabel = null;
@@ -42,17 +43,17 @@
     let speedBtn = null;
     let speedMenu = null;
     let minimizeBtn = null;
+    let monitorIntervalId = null;
+    let uiSyncIntervalId = null;
 
     let playbackRate = Number(localStorage.getItem('ae_playbackRate') || 1);
     if (!Number.isFinite(playbackRate)) playbackRate = 1;
 
-    let currentObjectUrl = null;
     let currentMimeType = 'audio/aac';
     let allChunks = [];
-    let activeStreamId = 0;
-    let playerState = 'idle';
-    let hasPlaybackStarted = false;
     let isCollapsed = false;
+    let dismissedPlaybackKey = null;
+    let downloadStreamId = 0;
 
     const speedOptions = [0.75, 1, 1.25, 1.5];
     const isTestMode = /(?:^|\/)test\.html(?:[?#]|$)/i.test(window.location.href);
@@ -148,22 +149,16 @@
         return title || 'Untitled';
     };
 
-    const hasAudioSource = () => Boolean(audio && audio.src);
+    const getObservedAudio = () => document.querySelectorAll('audio')[1] || null;
+
+    const getPlaybackKey = (element) => {
+        if (!element) return '';
+        return `${element.currentSrc || element.src || ''}`;
+    };
+
+    const hasAudioSource = () => Boolean(audio && (audio.currentSrc || audio.src));
 
     const hasKnownDuration = () => Boolean(audio && Number.isFinite(audio.duration) && audio.duration > 0);
-
-    const setObjectUrl = (url) => {
-        ensureAudio();
-        if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
-        currentObjectUrl = url;
-        audio.src = url;
-    };
-
-    const clearObjectUrl = () => {
-        if (!currentObjectUrl) return;
-        URL.revokeObjectURL(currentObjectUrl);
-        currentObjectUrl = null;
-    };
 
     const setButtonEnabled = (button, enabled) => {
         if (!button) return;
@@ -207,6 +202,8 @@
         if (!seekBar) return;
 
         if (hasKnownDuration()) {
+            if (seekStatusLabel) seekStatusLabel.style.display = 'none';
+            seekBar.style.display = 'block';
             seekBar.disabled = false;
             seekBar.style.opacity = '1';
             seekBar.style.cursor = 'pointer';
@@ -214,6 +211,11 @@
             return;
         }
 
+        if (seekStatusLabel) {
+            seekStatusLabel.textContent = hasAudioSource() ? 'Loading seekbar...' : 'Seek unavailable';
+            seekStatusLabel.style.display = 'block';
+        }
+        seekBar.style.display = 'none';
         seekBar.disabled = true;
         seekBar.style.opacity = '0.45';
         seekBar.style.cursor = 'default';
@@ -222,16 +224,6 @@
 
     const updatePlayPauseLabel = () => {
         if (!playPauseBtn) return;
-
-        if (playerState === 'error') {
-            playPauseBtn.textContent = 'Error';
-            return;
-        }
-
-        if (playerState === 'loading' && !hasPlaybackStarted) {
-            playPauseBtn.textContent = 'Loading';
-            return;
-        }
 
         refreshIconButton(
             playPauseBtn,
@@ -248,6 +240,7 @@
         setButtonEnabled(playPauseBtn, canControlPlayback);
         setButtonEnabled(backBtn, canControlPlayback);
         setButtonEnabled(forwardBtn, canControlPlayback);
+        setButtonEnabled(speedBtn, canControlPlayback);
 
         updateSpeedUi();
         updatePlayPauseLabel();
@@ -284,20 +277,16 @@
         URL.revokeObjectURL(url);
     };
 
-    const closePlayer = () => {
-        activeStreamId += 1;
-        playerState = 'idle';
-        hasPlaybackStarted = false;
+    const stopUiSync = () => {
+        if (!uiSyncIntervalId) return;
+        clearInterval(uiSyncIntervalId);
+        uiSyncIntervalId = null;
+    };
+
+    const teardownControls = () => {
         isCollapsed = false;
         closeSpeedMenu();
-
-        if (audio) {
-            audio.pause();
-            audio.removeAttribute('src');
-            audio.load();
-        }
-
-        clearObjectUrl();
+        stopUiSync();
 
         if (controlsDiv) {
             controlsDiv.remove();
@@ -309,6 +298,7 @@
         backBtn = null;
         forwardBtn = null;
         seekBar = null;
+        seekStatusLabel = null;
         currentTimeLabel = null;
         durationLabel = null;
         trackTitleLabel = null;
@@ -316,9 +306,11 @@
         speedBtn = null;
         speedMenu = null;
         minimizeBtn = null;
+    };
 
-        currentMimeType = 'audio/aac';
-        allChunks = [];
+    const closePlayer = () => {
+        dismissedPlaybackKey = audio && !audio.paused ? getPlaybackKey(audio) : null;
+        teardownControls();
     };
 
     const toggleCollapsed = () => {
@@ -477,6 +469,10 @@
         leftTimesContainer.style.cssText = 'position:relative;display:flex;align-items:center;';
         leftTimesContainer.append(speedBtn, createSpeedMenu());
 
+        seekStatusLabel = document.createElement('div');
+        seekStatusLabel.style.cssText = 'display:none;text-align:center;font-size:13px;color:#edf1f7;';
+        seekStatusLabel.textContent = 'Loading seekbar...';
+
         seekBar = document.createElement('input');
         seekBar.type = 'range';
         seekBar.min = '0';
@@ -518,7 +514,7 @@
 
         playPauseBtn = createIconButton('play', 'Play', 44);
         playPauseBtn.onclick = () => {
-            if (!audio || !audio.src) return;
+            if (!hasAudioSource()) return;
             if (audio.paused) {
                 audio.play().catch(console.error);
                 return;
@@ -539,7 +535,7 @@
         playbackGroup.append(backBtn, playPauseBtn, forwardBtn);
         rightGroup.append(downloadBtn);
         controlsRow.append(document.createElement('div'), playbackGroup, rightGroup);
-        contentDiv.append(seekBar, timesRow, controlsRow);
+        contentDiv.append(seekStatusLabel, seekBar, timesRow, controlsRow);
         controlsDiv.append(titleBar, contentDiv);
         document.body.appendChild(controlsDiv);
 
@@ -548,133 +544,115 @@
         updateControlState();
     };
 
-    const ensureAudio = () => {
-        if (audio) return audio;
-
-        audio = new Audio();
-        audio.addEventListener('timeupdate', updateTimeDisplay);
-        audio.addEventListener('durationchange', updateTimeDisplay);
-        audio.addEventListener('loadedmetadata', updateTimeDisplay);
-        audio.addEventListener('play', () => {
-            hasPlaybackStarted = true;
-            playerState = 'ready';
-            updateControlState();
-        });
-        audio.addEventListener('pause', updateControlState);
-        audio.addEventListener('ended', updateControlState);
-        audio.addEventListener('emptied', updateControlState);
-
-        return audio;
-    };
-
-    const waitForBuffer = (sourceBuffer) => {
-        if (!sourceBuffer.updating) return Promise.resolve();
-        return new Promise((resolve) => sourceBuffer.addEventListener('updateend', resolve, { once: true }));
-    };
-
-    const appendWhenReady = async (sourceBuffer, chunk) => {
-        await waitForBuffer(sourceBuffer);
-        sourceBuffer.appendBuffer(chunk);
-        await waitForBuffer(sourceBuffer);
-    };
-
-    const playBufferedAudio = async (response, mimeType) => {
-        const chunks = [];
-
-        if (response.body) {
-            const reader = response.body.getReader();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                allChunks.push(value);
-            }
-        } else {
-            const buffer = await response.arrayBuffer();
-            const singleChunk = new Uint8Array(buffer);
-            chunks.push(singleChunk);
-            allChunks.push(singleChunk);
-        }
-
-        const blob = new Blob(chunks, { type: mimeType });
-        setObjectUrl(URL.createObjectURL(blob));
-        audio.playbackRate = playbackRate;
-        await audio.play().catch(console.error);
-    };
-
     const ensureBody = async () => {
         if (document.body) return;
         await new Promise((resolve) => window.addEventListener('DOMContentLoaded', resolve, { once: true }));
     };
 
-    const attachAudioStream = async (response) => {
-        await ensureBody();
-        buildControls();
-        ensureAudio();
+    const syncPlayerUi = () => {
+        if (!controlsDiv) return;
+
+        if (audio) audio.playbackRate = playbackRate;
         updateTrackTitle();
-        allChunks = [];
-        activeStreamId += 1;
-        const streamId = activeStreamId;
-        currentMimeType = 'audio/aac';
-        playerState = 'loading';
-        hasPlaybackStarted = false;
-        audio.playbackRate = playbackRate;
         updateControlState();
 
+        if (!hasAudioSource() && controlsDiv) {
+            teardownControls();
+        }
+    };
+
+    const startUiSync = () => {
+        if (uiSyncIntervalId || document.visibilityState !== 'visible') return;
+        uiSyncIntervalId = setInterval(syncPlayerUi, 100);
+        syncPlayerUi();
+    };
+
+    const collectDownloadStream = async (response, streamId) => {
         try {
-            const mimeType = response.headers.get('content-type')?.split(';')[0] || 'audio/aac';
-            currentMimeType = mimeType;
-            const mseSupported = Boolean(response.body && window.MediaSource && MediaSource.isTypeSupported(mimeType));
-
-            if (mseSupported) {
-                const mediaSource = new MediaSource();
-                setObjectUrl(URL.createObjectURL(mediaSource));
-
-                await new Promise(resolve => mediaSource.addEventListener('sourceopen', resolve, { once: true }));
-                const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-
+            if (response.body) {
                 const reader = response.body.getReader();
-                let started = false;
-
-                while (streamId === activeStreamId) {
+                while (streamId === downloadStreamId) {
                     const { done, value } = await reader.read();
-
                     if (done) break;
-
                     allChunks.push(value);
-                    await appendWhenReady(sourceBuffer, value);
-
-                    if (!started) {
-                        started = true;
-                        audio.play().catch(console.error);
-                        updateControlState();
-                    }
                 }
-
-                if (streamId !== activeStreamId) return;
-                await waitForBuffer(sourceBuffer);
-                if (mediaSource.readyState === 'open') mediaSource.endOfStream();
-
             } else {
-                await playBufferedAudio(response, mimeType);
+                const buffer = await response.arrayBuffer();
+                if (streamId !== downloadStreamId) return;
+                allChunks.push(new Uint8Array(buffer));
             }
 
-            playerState = 'ready';
-            updateControlState();
-
+            if (streamId === downloadStreamId) updateControlState();
         } catch (err) {
-            playerState = 'error';
-            updateControlState();
-            console.error('[Audio Enhancer] Stream processing failed', err);
+            if (streamId !== downloadStreamId || err?.name === 'AbortError') return;
+            console.error('[Audio Enhancer] Download capture failed', err);
         }
+    };
+
+    const captureDownloadAudio = (response) => {
+        downloadStreamId += 1;
+        const streamId = downloadStreamId;
+        currentMimeType = response.headers.get('content-type')?.split(';')[0] || 'audio/aac';
+        allChunks = [];
+        updateControlState();
+        collectDownloadStream(response, streamId);
+    };
+
+    const checkObservedAudio = async () => {
+        await ensureBody();
+
+        const nextAudio = getObservedAudio();
+        const previousKey = getPlaybackKey(audio);
+        audio = nextAudio;
+
+        if (audio) {
+            audio.playbackRate = playbackRate;
+        }
+
+        const currentKey = getPlaybackKey(audio);
+        if (currentKey && previousKey && currentKey !== previousKey) {
+            dismissedPlaybackKey = null;
+        }
+
+        if (!audio || !hasAudioSource()) {
+            dismissedPlaybackKey = null;
+            teardownControls();
+            return;
+        }
+
+        if (audio.paused) {
+            if (dismissedPlaybackKey === currentKey) dismissedPlaybackKey = null;
+            if (controlsDiv) startUiSync();
+            return;
+        }
+
+        if (dismissedPlaybackKey && dismissedPlaybackKey === currentKey) return;
+
+        buildControls();
+        startUiSync();
+    };
+
+    const stopMonitoring = () => {
+        if (monitorIntervalId) {
+            clearInterval(monitorIntervalId);
+            monitorIntervalId = null;
+        }
+        stopUiSync();
+    };
+
+    const startMonitoring = () => {
+        if (document.visibilityState !== 'visible') return;
+        if (!monitorIntervalId) {
+            monitorIntervalId = setInterval(checkObservedAudio, 1000);
+        }
+        checkObservedAudio();
+        if (controlsDiv) startUiSync();
     };
 
     const initializeTestMode = async () => {
         await ensureBody();
         buildControls();
         updateTrackTitle();
-        playerState = 'idle';
-        hasPlaybackStarted = false;
         updateControlState();
     };
 
@@ -689,22 +667,27 @@
         return;
     }
 
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            startMonitoring();
+            return;
+        }
+        stopMonitoring();
+    });
+
     const originalFetch = window.fetch;
     window.fetch = async function (...args) {
         const res = await originalFetch.apply(this, args);
         const url = args[0] instanceof Request ? args[0].url : args[0];
 
         if (/\/backend-api\/(?:synthesize|speech\/generation)/.test(url)) {
-            const silencer = setInterval(() => {
-                document.querySelectorAll('audio').forEach(a => {
-                    if (a !== audio) { a.muted = true; a.pause(); }
-                });
-            }, 100);
-            setTimeout(() => clearInterval(silencer), 3000);
-
-            const streamResponse = typeof res.clone === 'function' ? res.clone() : res;
-            attachAudioStream(streamResponse);
+            if (typeof res.clone === 'function') {
+                captureDownloadAudio(res.clone());
+            }
+            startMonitoring();
         }
         return res;
     };
+
+    startMonitoring();
 })();
