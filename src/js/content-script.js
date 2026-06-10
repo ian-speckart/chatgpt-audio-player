@@ -54,6 +54,8 @@
     let isCollapsed = false;
     let dismissedPlaybackKey = null;
     let downloadStreamId = 0;
+    let trackTitleAtPlaybackStart = 'Untitled';
+    let trackTitlePlaybackKey = '';
 
     const speedOptions = [0.75, 1, 1.25, 1.5];
     const isTestMode = /(?:^|\/)test\.html(?:[?#]|$)/i.test(window.location.href);
@@ -186,9 +188,15 @@
 
     const updateTrackTitle = () => {
         if (!trackTitleLabel) return;
-        const title = getTrackTitle();
+        const title = trackTitleAtPlaybackStart || 'Untitled';
         trackTitleLabel.textContent = title;
         trackTitleLabel.title = title;
+    };
+
+    const captureTrackTitleForPlayback = (playbackKey) => {
+        trackTitleAtPlaybackStart = getTrackTitle();
+        trackTitlePlaybackKey = playbackKey || '';
+        updateTrackTitle();
     };
 
     const updateSpeedUi = () => {
@@ -579,7 +587,6 @@
         if (!controlsDiv) return;
 
         if (audio) audio.playbackRate = playbackRate;
-        updateTrackTitle();
         updateControlState();
 
         if (!hasAudioSource() && controlsDiv) {
@@ -640,6 +647,10 @@
             dismissedPlaybackKey = null;
         }
 
+        if (audio && !audio.paused && currentKey && currentKey !== trackTitlePlaybackKey) {
+            captureTrackTitleForPlayback(currentKey);
+        }
+
         if (!audio || !hasAudioSource()) {
             dismissedPlaybackKey = null;
             teardownControls();
@@ -677,6 +688,7 @@
 
     const initializeTestMode = async () => {
         await ensureBody();
+        captureTrackTitleForPlayback('test-mode');
         buildControls();
         updateTrackTitle();
         updateControlState();
