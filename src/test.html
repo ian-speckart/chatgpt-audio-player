@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audio Player Visual Test</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 48px 24px;
+            box-sizing: border-box;
+            background:
+                radial-gradient(circle at top, rgba(112, 168, 255, 0.18), transparent 35%),
+                linear-gradient(180deg, #09111b 0%, #111f2d 55%, #0e1722 100%);
+            color: #edf2f8;
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        main {
+            max-width: 720px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        p {
+            margin: 0 0 12px;
+            max-width: 60ch;
+            color: #d1d9e3;
+        }
+
+        code {
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Audio Player Visual Test</h1>
+        <p>This page loads the standalone content script in test mode so the player renders without a ChatGPT audio stream.</p>
+        <p>Use DevTools to tweak styles or change <code>document.title</code> and refresh to inspect the track-title row.</p>
+        <p>The draggable title bar, minimize button, close button, and speed dropdown should work here without any stream dependencies.</p>
+    </main>
+    <script src="js/content-script.js"></script>
+</body>
+</html>

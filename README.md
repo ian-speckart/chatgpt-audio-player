@@ -16,6 +16,10 @@ This extension adds audio player controls when an Audio element is being played 
    For that, just copy/paste the code in src/js/content-script.js.  
    It's ready to go.
 
+3. For quick UI checks during development, open src/test.html in a browser.
+   That page loads the same standalone content script in a lightweight test mode,
+   so you can inspect the player without reloading chatgpt.com.
+
 # HOW IT WORKS:
 
 -It checks if the tab is active.  
