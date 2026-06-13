@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://chatgpt.com/*
 // @grant       none
-// @version     0.0.0.5
+// @version     0.0.0.7
 // @author      Ian Speckart
 // @description https://github.com/ian-speckart/chatgpt-audio-player.git
 // ==/UserScript==
