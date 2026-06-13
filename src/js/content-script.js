@@ -45,6 +45,7 @@
     let minimizeBtn = null;
     let monitorIntervalId = null;
     let uiSyncIntervalId = null;
+    let audioTrackingInstalled = false;
 
     let playbackRate = Number(localStorage.getItem('ae_playbackRate') || 1);
     if (!Number.isFinite(playbackRate)) playbackRate = 1;
@@ -56,6 +57,7 @@
     let downloadStreamId = 0;
     let trackTitleAtPlaybackStart = 'Untitled';
     let trackTitlePlaybackKey = '';
+    const observedAudioElements = new Set();
 
     const speedOptions = [0.75, 1, 1.25, 1.5];
     const isTestMode = /(?:^|\/)test\.html(?:[?#]|$)/i.test(window.location.href);
@@ -163,14 +165,57 @@
         return title || 'Untitled';
     };
 
-    const getObservedAudio = () => document.querySelectorAll('audio')[1] || null;
+    const isAudioElement = (element) => (
+        typeof HTMLAudioElement !== 'undefined'
+        && element instanceof HTMLAudioElement
+    );
 
-    const getPlaybackKey = (element) => {
+    const rememberAudioElement = (element) => {
+        if (isAudioElement(element)) observedAudioElements.add(element);
+        return element;
+    };
+
+    const getAudioSource = (element) => {
         if (!element) return '';
         return `${element.currentSrc || element.src || ''}`;
     };
 
-    const hasAudioSource = () => Boolean(audio && (audio.currentSrc || audio.src));
+    const hasAudioSource = (element = audio) => Boolean(element && (getAudioSource(element) || element.srcObject));
+
+    const getPlaybackKey = (element) => {
+        if (!element) return '';
+        const source = getAudioSource(element);
+        if (source) return source;
+        if (element.srcObject) return `srcObject:${element.srcObject.id || 'stream'}`;
+        return '';
+    };
+
+    const getObservedAudio = () => {
+        const audioElements = Array.from(new Set([
+            ...observedAudioElements,
+            ...document.querySelectorAll('audio')
+        ])).filter(Boolean);
+
+        if (!audioElements.length) return null;
+
+        return audioElements
+            .map((element, index) => {
+                let score = index;
+                const source = getAudioSource(element);
+
+                if (hasAudioSource(element)) score += 100;
+                if (source && /\/backend-api\/(?:synthesize|speech\/generation)(?:[/?#]|$)/.test(source)) score += 250;
+                if (element === audio) score += 20;
+                if (!element.paused && !element.ended) score += 1000;
+                if (Number.isFinite(element.currentTime) && element.currentTime > 0) score += 50;
+                if (Number.isFinite(element.duration) && element.duration > 0) score += 25;
+                if (element.readyState > 0) score += 10;
+                if (element.ended) score -= 100;
+
+                return { element, score };
+            })
+            .sort((a, b) => b.score - a.score)[0].element;
+    };
 
     const hasKnownDuration = () => Boolean(audio && Number.isFinite(audio.duration) && audio.duration > 0);
 
@@ -631,6 +676,19 @@
         collectDownloadStream(response, streamId);
     };
 
+    const getFetchUrl = (input) => {
+        if (input instanceof Request) return input.url;
+        if (input && typeof input === 'object' && 'url' in input) return input.url;
+        return `${input || ''}`;
+    };
+
+    const isSpeechResponse = (url, response) => {
+        if (/\/backend-api\/(?:synthesize|speech\/generation)(?:[/?#]|$)/.test(url)) return true;
+
+        const contentType = response.headers.get('content-type') || '';
+        return /^audio\//i.test(contentType) && /\/backend-api\//.test(url);
+    };
+
     const checkObservedAudio = async () => {
         await ensureBody();
 
@@ -686,6 +744,59 @@
         if (controlsDiv) startUiSync();
     };
 
+    const installAudioElementTracking = () => {
+        if (audioTrackingInstalled) return;
+        audioTrackingInstalled = true;
+
+        document.querySelectorAll('audio').forEach(rememberAudioElement);
+
+        const documentPrototype = typeof Document !== 'undefined' ? Document.prototype : null;
+        const originalCreateElement = documentPrototype?.createElement;
+
+        if (typeof originalCreateElement === 'function') {
+            documentPrototype.createElement = function (...args) {
+                const element = originalCreateElement.apply(this, args);
+                if (`${args[0] || ''}`.toLowerCase() === 'audio') rememberAudioElement(element);
+                return element;
+            };
+        }
+
+        const mediaPrototype = typeof HTMLMediaElement !== 'undefined' ? HTMLMediaElement.prototype : null;
+        const originalPlay = mediaPrototype?.play;
+
+        if (typeof originalPlay === 'function') {
+            mediaPrototype.play = function (...args) {
+                const shouldTrack = isAudioElement(this);
+
+                if (shouldTrack) {
+                    rememberAudioElement(this);
+                    if (!controlsDiv) dismissedPlaybackKey = null;
+                    audio = this;
+                    startMonitoring();
+                }
+
+                const result = originalPlay.apply(this, args);
+
+                if (shouldTrack) {
+                    Promise.resolve(result).then(checkObservedAudio, checkObservedAudio);
+                }
+
+                return result;
+            };
+        }
+
+        const originalPause = mediaPrototype?.pause;
+
+        if (typeof originalPause === 'function') {
+            mediaPrototype.pause = function (...args) {
+                if (isAudioElement(this)) rememberAudioElement(this);
+                const result = originalPause.apply(this, args);
+                checkObservedAudio();
+                return result;
+            };
+        }
+    };
+
     const initializeTestMode = async () => {
         await ensureBody();
         captureTrackTitleForPlayback('test-mode');
@@ -705,6 +816,8 @@
         return;
     }
 
+    installAudioElementTracking();
+
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             startMonitoring();
@@ -716,9 +829,9 @@
     const originalFetch = window.fetch;
     window.fetch = async function (...args) {
         const res = await originalFetch.apply(this, args);
-        const url = args[0] instanceof Request ? args[0].url : args[0];
+        const url = getFetchUrl(args[0]);
 
-        if (/\/backend-api\/(?:synthesize|speech\/generation)/.test(url)) {
+        if (isSpeechResponse(url, res)) {
             if (typeof res.clone === 'function') {
                 captureDownloadAudio(res.clone());
             }
