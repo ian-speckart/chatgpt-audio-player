@@ -46,6 +46,8 @@
     let monitorIntervalId = null;
     let uiSyncIntervalId = null;
     let audioTrackingInstalled = false;
+    let pendingPlayAudio = null;
+    let playRequestId = 0;
 
     let playbackRate = Number(localStorage.getItem('ae_playbackRate') || 1);
     if (!Number.isFinite(playbackRate)) playbackRate = 1;
@@ -592,10 +594,19 @@
                 return;
             }
 
-            if (audio.paused) {
-                audio.play().catch(console.error);
+            if (audio.paused && pendingPlayAudio !== audio) {
+                const requestId = ++playRequestId;
+                pendingPlayAudio = audio;
+                audio.play().then(() => {
+                    if (requestId === playRequestId) pendingPlayAudio = null;
+                }).catch((error) => {
+                    if (requestId === playRequestId) pendingPlayAudio = null;
+                    if (error?.name !== 'AbortError') console.error(error);
+                });
                 return;
             }
+            pendingPlayAudio = null;
+            playRequestId += 1;
             audio.pause();
         };
 
