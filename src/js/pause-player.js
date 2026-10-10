@@ -16,6 +16,11 @@
     const getContexts = () => Array.from(window[registryKey] || []);
     const getMediaElements = () => Array.from(window[mediaKey] || []);
 
+    const getConversationRouteKey = () => {
+        const conversationMatch = location.pathname.match(/\/c\/([^/?#]+)/);
+        return conversationMatch ? `conversation:${conversationMatch[1]}` : `route:${location.pathname}`;
+    };
+
     const pauseMediaWithoutStopSignal = (media) => {
         let pauseEventSuppressed = false;
         const suppressPauseEvent = (event) => {
@@ -72,6 +77,35 @@
             ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM15 5h3v14h-3z"/></svg>'
             : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
     };
+
+    let currentRouteKey = getConversationRouteKey();
+    const handleRouteChange = () => {
+        const nextRouteKey = getConversationRouteKey();
+        if (nextRouteKey === currentRouteKey) return;
+
+        console.info('[ChatGPT Audio Player] conversation route changed; clearing paused playback', {
+            from: currentRouteKey,
+            to: nextRouteKey,
+            pausedMedia: pausedMedia.size,
+            pausedContexts: pausedContexts.size,
+        });
+        currentRouteKey = nextRouteKey;
+        pausedMedia.clear();
+        pausedContexts.clear();
+        lastActiveMedia = null;
+        updateButton();
+    };
+
+    ['pushState', 'replaceState'].forEach((methodName) => {
+        const originalMethod = history[methodName];
+        history[methodName] = function (...args) {
+            const result = originalMethod.apply(this, args);
+            handleRouteChange();
+            return result;
+        };
+    });
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
 
     const togglePlayback = async () => {
         const { contexts, activeMedia, isRunning } = getPlaybackState();
