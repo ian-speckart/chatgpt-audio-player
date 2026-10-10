@@ -6,6 +6,8 @@
     const mediaKey = '__chatgptAudioPlayerMedia';
     const hostId = 'chatgpt-audio-player-pause-control';
     let button;
+    let backButton;
+    let forwardButton;
     let playerHost;
     let updateInterval;
     let pausedMedia = new Set();
@@ -15,6 +17,46 @@
 
     const getContexts = () => Array.from(window[registryKey] || []);
     const getMediaElements = () => Array.from(window[mediaKey] || []);
+
+    const getSeekTarget = () => {
+        const activeMedia = getMediaElements().filter((media) => !media.paused && !media.ended);
+        if (activeMedia.length) return activeMedia[activeMedia.length - 1];
+
+        const pausedTarget = Array.from(pausedMedia).find((media) => !media.ended
+            && Number.isFinite(media.duration) && media.duration > 0);
+        if (pausedTarget) return pausedTarget;
+
+        if (lastActiveMedia && !lastActiveMedia.ended
+            && Number.isFinite(lastActiveMedia.duration) && lastActiveMedia.duration > 0) {
+            return lastActiveMedia;
+        }
+
+        return null;
+    };
+
+    const seekBy = (offset) => {
+        const media = getSeekTarget();
+        if (!media) {
+            console.info('[ChatGPT Audio Player] seek unavailable', { offset });
+            return;
+        }
+
+        const nextTime = Math.max(0, Math.min(media.duration, media.currentTime + offset));
+        try {
+            media.currentTime = nextTime;
+            console.info('[ChatGPT Audio Player] seek applied', {
+                offset,
+                currentTime: media.currentTime,
+                duration: media.duration,
+                source: media.currentSrc || media.src || '(no source)',
+            });
+        } catch (error) {
+            console.warn('[ChatGPT Audio Player] seek failed', {
+                offset,
+                message: error?.message || String(error),
+            });
+        }
+    };
 
     const getConversationRouteKey = () => {
         const conversationMatch = location.pathname.match(/\/c\/([^/?#]+)/);
@@ -62,7 +104,7 @@
     };
 
     const updateButton = () => {
-        if (!button) return;
+        if (!button || !playerHost) return;
         const { contexts, mediaElements, isRunning } = getPlaybackState();
         const hasPausedSession = pausedMedia.size > 0 || pausedContexts.size > 0;
         const shouldShow = isRunning || hasPausedSession;
@@ -76,6 +118,11 @@
         button.innerHTML = isRunning
             ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM15 5h3v14h-3z"/></svg>'
             : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+        const seekTarget = getSeekTarget();
+        [backButton, forwardButton].forEach((seekButton) => {
+            seekButton.disabled = !seekTarget;
+            seekButton.style.opacity = seekTarget ? '1' : '0.45';
+        });
     };
 
     let currentRouteKey = getConversationRouteKey();
@@ -230,7 +277,7 @@
             'top:56px',
             'right:16px',
             'z-index:2147483647',
-            'width:56px',
+            'width:160px',
             'height:56px',
             'display:none',
             'pointer-events:auto',
@@ -259,11 +306,19 @@
         const shadow = playerHost.attachShadow({ mode: 'closed' });
         const style = document.createElement('style');
         style.textContent = `
+            .controls {
+                display: grid;
+                grid-template-columns: 44px 56px 44px;
+                align-items: center;
+                justify-content: space-between;
+                width: 160px;
+                height: 56px;
+            }
             button {
                 display: grid;
                 place-items: center;
-                width: 56px;
-                height: 56px;
+                width: 44px;
+                height: 44px;
                 padding: 0;
                 border: 1px solid rgba(255,255,255,.2);
                 border-radius: 50%;
@@ -274,6 +329,8 @@
                 pointer-events: auto;
                 touch-action: manipulation;
             }
+            button.primary { width: 56px; height: 56px; }
+            button:disabled { cursor: default; }
             button:hover { background: #343541; }
             button:focus-visible { outline: 2px solid #10a37f; outline-offset: 3px; }
             svg { width: 24px; height: 24px; fill: currentColor; }
@@ -281,6 +338,7 @@
 
         button = document.createElement('button');
         button.type = 'button';
+        button.className = 'primary';
         button.addEventListener('pointerdown', (event) => {
             console.info('[ChatGPT Audio Player] pause button pointerdown', {
                 pointerType: event.pointerType,
@@ -301,7 +359,34 @@
             });
             togglePlayback();
         });
-        shadow.append(style, button);
+        const controls = document.createElement('div');
+        controls.className = 'controls';
+        backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.textContent = '-5s';
+        backButton.setAttribute('aria-label', 'Back 5 seconds');
+        backButton.title = 'Back 5 seconds';
+        backButton.addEventListener('pointerdown', (event) => {
+            if (!event.isPrimary || event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            seekBy(-5);
+        });
+
+        forwardButton = document.createElement('button');
+        forwardButton.type = 'button';
+        forwardButton.textContent = '+5s';
+        forwardButton.setAttribute('aria-label', 'Forward 5 seconds');
+        forwardButton.title = 'Forward 5 seconds';
+        forwardButton.addEventListener('pointerdown', (event) => {
+            if (!event.isPrimary || event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            seekBy(5);
+        });
+
+        controls.append(backButton, button, forwardButton);
+        shadow.append(style, controls);
         (document.body || document.documentElement).appendChild(playerHost);
         updateButton();
 
