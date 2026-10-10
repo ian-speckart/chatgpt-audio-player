@@ -100,7 +100,7 @@
             item.style.fontWeight = Number(item.dataset.rate) === playbackRate ? '700' : '400';
         });
         const seekTarget = getCurrentMedia();
-        const canSeek = Boolean(seekTarget && Number.isFinite(seekTarget.duration) && seekTarget.duration > 0);
+        const canSeek = Boolean(seekTarget && hasSource(seekTarget));
         [backButton, forwardButton].forEach((item) => {
             item.disabled = !canSeek;
             item.style.opacity = canSeek ? '1' : '0.45';
@@ -194,11 +194,12 @@
 
     function seekBy(offset) {
         const media = getCurrentMedia();
-        if (!media || !Number.isFinite(media.duration) || media.duration <= 0) {
+        if (!media || !hasSource(media)) {
             log('seek unavailable', { offset, hasMedia: Boolean(media), duration: media?.duration });
             return;
         }
-        const nextTime = Math.max(0, Math.min(media.duration, media.currentTime + offset));
+        const maxTime = Number.isFinite(media.duration) && media.duration > 0 ? media.duration : Infinity;
+        const nextTime = Math.max(0, Math.min(maxTime, media.currentTime + offset));
         try {
             media.currentTime = nextTime;
             log('seek applied', {
