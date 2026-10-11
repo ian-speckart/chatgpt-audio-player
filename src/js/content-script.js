@@ -2,6 +2,8 @@
 (function () {
     'use strict';
 
+    const loggingEnabled = false;
+
     const MEDIA_KEY = '__chatgptAudioPlayerMedia';
     const CONTEXT_KEY = '__chatgptAudioPlayerContexts';
     const PLAYER_ID = 'ae_enhanced_player';
@@ -13,7 +15,6 @@
     let playButton;
     let speedButton;
     let speedMenu;
-    let backButton;
     let forwardButton;
     let downloadButton;
     let chunks = [];
@@ -41,6 +42,7 @@
     }
 
     function log(event, details = {}) {
+        if (!loggingEnabled) return;
         console.info('[ChatGPT Audio Player]', event, details);
     }
 
@@ -98,12 +100,6 @@
         downloadButton.disabled = chunks.length === 0;
         speedMenu.querySelectorAll('button[data-rate]').forEach((item) => {
             item.style.fontWeight = Number(item.dataset.rate) === playbackRate ? '700' : '400';
-        });
-        const seekTarget = getCurrentMedia();
-        const canSeek = Boolean(seekTarget && hasSource(seekTarget));
-        [backButton, forwardButton].forEach((item) => {
-            item.disabled = !canSeek;
-            item.style.opacity = canSeek ? '1' : '0.45';
         });
     }
 
@@ -312,8 +308,6 @@
         content.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:12px 16px 14px;';
         const left = document.createElement('div');
         left.style.cssText = 'display:flex;align-items:center;gap:8px;';
-        backButton = createButton('back', 'Back 5 seconds', () => seekBy(-5), 30, true);
-
         const speedWrap = document.createElement('div');
         speedWrap.style.cssText = 'position:relative;';
         speedButton = document.createElement('button');
@@ -334,16 +328,15 @@
             speedMenu.appendChild(item);
         });
         speedWrap.append(speedButton, speedMenu);
-        left.append(backButton, speedWrap);
+        left.append(speedWrap);
 
         playButton = createButton('play', 'Play', togglePlayback, 44, true);
         playButton.style.justifySelf = 'center';
         const right = document.createElement('div');
         right.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;gap:8px;';
-        forwardButton = createButton('forward', 'Forward 5 seconds', () => seekBy(5), 30, true);
         downloadButton = createButton('download', 'Download audio', downloadAudio, 30);
         downloadButton.disabled = true;
-        right.append(forwardButton, downloadButton);
+        right.append(downloadButton);
         content.append(left, playButton, right);
         player.append(header, content);
         (document.body || document.documentElement).appendChild(player);
