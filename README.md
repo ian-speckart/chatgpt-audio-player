@@ -11,10 +11,7 @@ This extension adds audio player controls when an Audio element is being played 
 
 # HOW IT WORKS:
 
--It checks if the tab is active.  
--If so, it checks if there's an audio element being played.  
--If so, it enables its native audio controls (audio.controls = true).  
--It positions the player next to the Share button.
+It tracks audio elements when they play, and detects Web Audio contexts used for playback, including in accessible frames. A floating player appears while audio is playing or paused. It lets you play or pause, change playback speed, and download captured 'Read Aloud' audio. The player can also be moved, minimized, or dismissed.
 
 # SEEK BAR AND DURATION:
 
